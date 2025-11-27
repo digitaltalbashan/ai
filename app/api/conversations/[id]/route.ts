@@ -11,14 +11,13 @@ export async function GET(
   try {
     // Check authentication
     const session = await getServerSession()
-    if (!session?.user?.id) {
+    const userId = (session?.user as any)?.id
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in' },
         { status: 401 }
       )
     }
-
-    const userId = session.user.id
     const conversationId = params.id
 
     // Get conversation with all messages

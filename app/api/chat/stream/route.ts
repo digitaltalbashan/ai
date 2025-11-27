@@ -19,14 +19,13 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Check authentication
     const session = await getServerSession()
-    if (!session?.user?.id) {
+    const userId = (session?.user as any)?.id
+    if (!userId) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized - Please sign in' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       )
     }
-
-    const userId = session.user.id
     const body: ChatRequest = await request.json()
     const { message, conversationId } = body
 
