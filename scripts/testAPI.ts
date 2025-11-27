@@ -1,5 +1,6 @@
 // Test the API endpoint directly
-import fetch from 'node-fetch'
+// @ts-ignore - node-fetch types not needed for runtime
+const fetch = globalThis.fetch || require('node-fetch')
 
 async function testAPI() {
   console.log('🧪 בודק את ה-API endpoint...\n')
