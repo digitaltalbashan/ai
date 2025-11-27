@@ -231,7 +231,7 @@ export default function ChatPage() {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-800">
-              💬 צ'אט טיפולי אישי
+              💬 צ&apos;אט טיפולי אישי
             </h1>
             <p className="text-sm text-gray-500 mt-1">מבוסס על חומרי הקורס</p>
           </div>
@@ -250,6 +250,7 @@ export default function ChatPage() {
             </button>
             <div className="flex items-center gap-2">
               {session.user.image && !imageError ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User'}
@@ -311,7 +312,7 @@ export default function ChatPage() {
           <div className="text-center text-gray-500 mt-8">
             <p className="text-lg mb-2">שלום! 👋</p>
             <p>התחל שיחה על ידי הקלדת הודעה למטה.</p>
-            <p className="text-sm mt-4 text-gray-400">נסה לשאול: "מה זה מעגל התודעה?"</p>
+            <p className="text-sm mt-4 text-gray-400">נסה לשאול: &quot;מה זה מעגל התודעה?&quot;</p>
           </div>
         )}
 
