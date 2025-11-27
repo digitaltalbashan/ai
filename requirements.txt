@@ -1,0 +1,15 @@
+python-docx
+faiss-cpu
+sentence-transformers
+psycopg2-binary
+tqdm
+requests
+torch
+transformers
+accelerate
+sentencepiece
+safetensors
+numpy
+protobuf
+llama-cpp-python
+

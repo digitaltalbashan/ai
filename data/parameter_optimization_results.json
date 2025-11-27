@@ -1,0 +1,164 @@
+[
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 1024,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "ברירת מחדל נוכחית"
+  },
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 1536,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה בינונית"
+  },
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 2048,
+    "max_context": 1800,
+    "top_n_rerank": 12,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה משמעותית"
+  },
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 1536,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת max_tokens"
+  },
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 1024,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת context"
+  },
+  {
+    "question": "מה זה מעגל התודעה?",
+    "max_new_tokens": 2048,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2413) exceed context window of 2048",
+    "success": false,
+    "description": "max_tokens + context"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 1024,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "ברירת מחדל נוכחית"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 1536,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה בינונית"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 2048,
+    "max_context": 1800,
+    "top_n_rerank": 12,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה משמעותית"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 1536,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת max_tokens"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 1024,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת context"
+  },
+  {
+    "question": "מה הקשר בין סרגלים לריאקטיביות?",
+    "max_new_tokens": 2048,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2177) exceed context window of 2048",
+    "success": false,
+    "description": "max_tokens + context"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 1024,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "ברירת מחדל נוכחית"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 1536,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה בינונית"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 2048,
+    "max_context": 1800,
+    "top_n_rerank": 12,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "הגדלה משמעותית"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 1536,
+    "max_context": 1200,
+    "top_n_rerank": 8,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת max_tokens"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 1024,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "רק הגדלת context"
+  },
+  {
+    "question": "איך עובד חוק המראות?",
+    "max_new_tokens": 2048,
+    "max_context": 1500,
+    "top_n_rerank": 10,
+    "error": "Requested tokens (2644) exceed context window of 2048",
+    "success": false,
+    "description": "max_tokens + context"
+  }
+]

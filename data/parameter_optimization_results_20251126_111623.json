@@ -1,0 +1,180 @@
+{
+  "timestamp": "2025-11-26T11:16:23.375516",
+  "test_questions": [
+    "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+    "מה זה מעגל התודעה ואיך הוא עובד?",
+    "מה הקשר בין סרגלים לריאקטיביות?",
+    "איך אני משחרר את המראה?",
+    "מה ההבדל בין תודעת R, תודעת A ותודעת C?"
+  ],
+  "parameter_options": [
+    {
+      "name": "Option 1 - Current (Conservative)",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "description": "הנוכחי - שמרני"
+    },
+    {
+      "name": "Option 2 - Medium Increase",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "description": "הגדלה בינונית - יותר קונטקסט ויותר טוקנים"
+    },
+    {
+      "name": "Option 3 - Large Increase",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "description": "הגדלה גדולה - מקסימום קונטקסט וטוקנים"
+    },
+    {
+      "name": "Option 4 - Balanced (Recommended)",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "description": "מאוזן - אופטימלי בין קונטקסט לטוקנים"
+    }
+  ],
+  "analysis": {},
+  "best_option": null,
+  "all_results": [
+    {
+      "question": "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "option_name": "Option 1 - Current (Conservative)"
+    },
+    {
+      "question": "מה זה מעגל התודעה ואיך הוא עובד?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "option_name": "Option 1 - Current (Conservative)"
+    },
+    {
+      "question": "מה הקשר בין סרגלים לריאקטיביות?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "option_name": "Option 1 - Current (Conservative)"
+    },
+    {
+      "question": "איך אני משחרר את המראה?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "option_name": "Option 1 - Current (Conservative)"
+    },
+    {
+      "question": "מה ההבדל בין תודעת R, תודעת A ותודעת C?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1200,
+      "max_tokens": 1024,
+      "option_name": "Option 1 - Current (Conservative)"
+    },
+    {
+      "question": "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "option_name": "Option 2 - Medium Increase"
+    },
+    {
+      "question": "מה זה מעגל התודעה ואיך הוא עובד?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "option_name": "Option 2 - Medium Increase"
+    },
+    {
+      "question": "מה הקשר בין סרגלים לריאקטיביות?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "option_name": "Option 2 - Medium Increase"
+    },
+    {
+      "question": "איך אני משחרר את המראה?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "option_name": "Option 2 - Medium Increase"
+    },
+    {
+      "question": "מה ההבדל בין תודעת R, תודעת A ותודעת C?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1500,
+      "max_tokens": 1536,
+      "option_name": "Option 2 - Medium Increase"
+    },
+    {
+      "question": "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "option_name": "Option 3 - Large Increase"
+    },
+    {
+      "question": "מה זה מעגל התודעה ואיך הוא עובד?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "option_name": "Option 3 - Large Increase"
+    },
+    {
+      "question": "מה הקשר בין סרגלים לריאקטיביות?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "option_name": "Option 3 - Large Increase"
+    },
+    {
+      "question": "איך אני משחרר את המראה?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "option_name": "Option 3 - Large Increase"
+    },
+    {
+      "question": "מה ההבדל בין תודעת R, תודעת A ותודעת C?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1800,
+      "max_tokens": 2048,
+      "option_name": "Option 3 - Large Increase"
+    },
+    {
+      "question": "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "option_name": "Option 4 - Balanced (Recommended)"
+    },
+    {
+      "question": "מה זה מעגל התודעה ואיך הוא עובד?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "option_name": "Option 4 - Balanced (Recommended)"
+    },
+    {
+      "question": "מה הקשר בין סרגלים לריאקטיביות?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "option_name": "Option 4 - Balanced (Recommended)"
+    },
+    {
+      "question": "איך אני משחרר את המראה?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "option_name": "Option 4 - Balanced (Recommended)"
+    },
+    {
+      "question": "מה ההבדל בין תודעת R, תודעת A ותודעת C?",
+      "error": "'RagQueryEngine' object has no attribute 'rerank_candidates'",
+      "max_context": 1600,
+      "max_tokens": 1792,
+      "option_name": "Option 4 - Balanced (Recommended)"
+    }
+  ]
+}

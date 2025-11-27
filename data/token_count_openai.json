@@ -1,0 +1,159 @@
+{
+  "summary": {
+    "total_questions": 20,
+    "avg_tokens": 4084,
+    "min_tokens": 3650,
+    "max_tokens": 4181,
+    "total_tokens": 81697,
+    "context_windows": {
+      "gpt4": 8192,
+      "gpt35": 16385,
+      "dicta_lm_2": 2048
+    },
+    "fits_in_gpt4": 20,
+    "fits_in_gpt35": 20,
+    "fits_in_dicta_lm": 0
+  },
+  "questions": [
+    {
+      "question_num": 1,
+      "question": "מה ההבדל בין הבנה שכלית של שינוי לבין שינוי אמיתי בחיים?",
+      "tokens_openai": 4131,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 2,
+      "question": "למה מודעות פנימית לבד לא מספיקה כדי ליצור שינוי משמעותי?",
+      "tokens_openai": 4137,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 3,
+      "question": "מהו \"המרחק בין הידיעה לבין הפעולה\" וכיצד מצמצמים אותו?",
+      "tokens_openai": 4104,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 4,
+      "question": "איך מזהים דפוס רגשי שמנהל אותנו באופן אוטומטי?",
+      "tokens_openai": 3650,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 5,
+      "question": "מה הקשר בין פחד לבין קבלת החלטות יומיומית?",
+      "tokens_openai": 4083,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 6,
+      "question": "מדוע אנשים נתקעים ב\"התפתחות אינסופית\" בלי להשיג תוצאות מעשיות?",
+      "tokens_openai": 4112,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 7,
+      "question": "מהי אחריות אישית וכיצד היא משפיעה על תהליך שינוי?",
+      "tokens_openai": 4113,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 8,
+      "question": "איך משנים התנהגות שנובעת ממנגנוני הישרדות ישנים?",
+      "tokens_openai": 4139,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 9,
+      "question": "מה ההבדל בין שינוי חיצוני לבין שינוי פנימי עמוק?",
+      "tokens_openai": 4113,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 10,
+      "question": "כיצד ניתן להעביר רעיון או חזון לאנשים בצורה שמייצרת חיבור ולא התנגדות?",
+      "tokens_openai": 4160,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 11,
+      "question": "למה חוסר בהירות פנימית יוצר חוסר בהירות גם במערכות יחסים ובתקשורת?",
+      "tokens_openai": 4146,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 12,
+      "question": "איך להתמודד עם התנגדות פנימית לשינוי למרות מודעות גבוהה?",
+      "tokens_openai": 4145,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 13,
+      "question": "מה התפקיד של רגשות \"לא נוחים\" בתהליך ההתפתחות האישית?",
+      "tokens_openai": 3674,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 14,
+      "question": "איך יודעים אם קיבלנו החלטה ממקום חופשי ולא מתוך דפוס אוטומטי?",
+      "tokens_openai": 4122,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 15,
+      "question": "כיצד מנהיגות אמיתית מתחילה מבפנים לפני שהיא באה לידי ביטוי בצוות או בארגון?",
+      "tokens_openai": 4157,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 16,
+      "question": "מה יוצר פער בין מי שאנחנו רוצים להיות לבין מי שאנחנו בפועל?",
+      "tokens_openai": 4110,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 17,
+      "question": "איך מחזקים יכולת פעולה (Action Ability) מתוך בהירות ולא מתוך לחץ?",
+      "tokens_openai": 4181,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 18,
+      "question": "מהי \"תנועה פנימית\" וכיצד היא משפיעה על שינוי התנהגותי?",
+      "tokens_openai": 4107,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 19,
+      "question": "מדוע תובנות לבדן אינן משנות את המציאות, ומה נדרש כדי להפוך אותן לכלים מעשיים?",
+      "tokens_openai": 4177,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    },
+    {
+      "question_num": 20,
+      "question": "איך מפתחים יצירה מודעת (Creating) במקום תגובה אוטומטית למציאות?",
+      "tokens_openai": 4136,
+      "context_length_chars": 1203,
+      "num_chunks": 8
+    }
+  ]
+}
