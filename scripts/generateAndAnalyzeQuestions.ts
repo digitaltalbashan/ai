@@ -318,7 +318,7 @@ async function analyzeQuestion(question: string, questionIndex: number): Promise
     let metadataMatch = 0
     for (const word of questionWords) {
       if (topic.includes(word)) metadataMatch += 0.5
-      if (concepts.some(c => c.includes(word))) metadataMatch += 0.3
+      if (concepts.some((c: string) => c.includes(word))) metadataMatch += 0.3
     }
     metadataMatch = Math.min(1, metadataMatch)
     metadataMatchSum += metadataMatch
