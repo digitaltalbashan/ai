@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       question,
-      answer: result.answer || 'לא נמצאו קטעים רלוונטיים.',
+      answer: 'לא נמצאו קטעים רלוונטיים.', // CrossEncoder only returns sources, not answer
       sources: result.sources.map(s => ({
         id: s.id,
         source: s.source,
