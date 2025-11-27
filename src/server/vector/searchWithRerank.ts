@@ -225,7 +225,11 @@ export async function searchKnowledgeWithRerank(
     // Fallback to hybrid scoring if Python engine fails
     console.warn('CrossEncoder via Python failed, using hybrid scoring:', error)
     const { rerankWithHybridScoring } = await import('./rerankWithCrossEncoder')
-    const scoredChunks = rerankWithHybridScoring(query, candidates)
+    const scoredChunks = rerankWithHybridScoring(query, candidates.map(c => ({
+      ...c,
+      source: c.source || undefined,
+      lesson: c.lesson || undefined
+    })))
     topChunks = scoredChunks.slice(0, topN)
   }
   
