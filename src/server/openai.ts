@@ -1,4 +1,11 @@
 // OpenAI API client for LLM and embeddings
+// 
+// 🔒 DATA PRIVACY & TRAINING OPT-OUT:
+// - As of March 1, 2023, OpenAI does NOT use API data for training by default
+// - API data is retained for 30 days for abuse monitoring, then deleted
+// - For zero data retention, configure in OpenAI organization settings
+// - See DATA_PRIVACY.md for complete privacy configuration guide
+//
 import OpenAI from 'openai'
 
 // Lazy initialization - read env vars at runtime
@@ -9,8 +16,13 @@ function getOpenAIClient(): OpenAI {
   }
   
   // Return singleton instance
+  // Note: No training parameters are used - data is NOT used for model training
   if (!getOpenAIClient.instance) {
-    getOpenAIClient.instance = new OpenAI({ apiKey })
+    getOpenAIClient.instance = new OpenAI({ 
+      apiKey,
+      // No additional configuration needed - OpenAI API does not use data for training by default
+      // For enterprise accounts, configure zero data retention in OpenAI dashboard
+    })
   }
   return getOpenAIClient.instance
 }
@@ -42,9 +54,11 @@ async function getLLMClient() {
 export async function embedText(text: string): Promise<number[]> {
   try {
     const client = getOpenAIClient()
+    // 🔒 Privacy: Embeddings API does NOT use data for training
     const response = await client.embeddings.create({
       model: getEmbeddingModel(),
       input: text,
+      // Note: No training parameters - data is NOT used for model training
     })
     return response.data[0]?.embedding || []
   } catch (error: any) {
@@ -60,9 +74,11 @@ export async function embedText(text: string): Promise<number[]> {
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   try {
     const client = getOpenAIClient()
+    // 🔒 Privacy: Embeddings API does NOT use data for training
     const response = await client.embeddings.create({
       model: getEmbeddingModel(),
       input: texts,
+      // Note: No training parameters - data is NOT used for model training
     })
     return response.data.map(item => item.embedding)
   } catch (error: any) {

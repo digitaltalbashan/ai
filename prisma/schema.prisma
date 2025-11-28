@@ -57,15 +57,19 @@ enum MessageSender {
 }
 
 model KnowledgeChunk {
-  id        String   @id
-  text      String   @db.Text
-  metadata  Json?
-  embedding Unsupported("vector(768)")
-  source    String?
-  lesson    String?
-  order     Int?
-  tags      String[]
-  createdAt DateTime @default(now())
+  id          String   @id
+  text        String   @db.Text
+  metadata    Json?
+  embedding   Unsupported("vector(1536)") // text-embedding-3-small
+  source      String?
+  lesson      String?
+  order       Int?
+  tags        String[]
+  file_path   String?
+  chunk_index Int?
+  content_hash String?
+  updated_at  DateTime?
+  createdAt   DateTime @default(now())
 
   @@map("knowledge_chunks")
 }

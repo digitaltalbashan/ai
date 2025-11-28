@@ -4,7 +4,8 @@
  */
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
-import { chatCompletion } from '../openai'
+import { chatCompletion, embedText } from '../openai'
+import { prisma } from '@/src/server/db/client'
 
 export interface OpenAIRagResult {
   answer: string
@@ -211,11 +212,93 @@ ${contextText}${userContextSection}`
 }
 
 /**
- * Retrieve chunks using Python RAG (retrieval + re-ranking only)
+ * Retrieve chunks using OpenAI embeddings (TypeScript-based, no Python)
+ * This matches the 1536-dimensional embeddings in the database
  */
 async function retrieveChunksWithPython(
   searchQuery: string,
   topK: number,
+  topN: number
+): Promise<Array<{
+  id: string
+  text: string
+  source: string
+  chunk_index: number
+  rerank_score: number
+  distance: number
+}>> {
+  // Step 1: Generate query embedding using OpenAI (1536 dimensions)
+  const queryEmbedding = await embedText(searchQuery)
+  const embeddingStr = `[${queryEmbedding.join(',')}]`
+  
+  // Step 2: Vector search in PostgreSQL
+  const candidates = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string
+      text: string
+      source: string | null
+      lesson: string | null
+      order: number | null
+      distance: number
+    }>
+  >(
+    `SELECT 
+      id,
+      text,
+      source,
+      lesson,
+      "order",
+      embedding <=> $1::vector AS distance
+    FROM knowledge_chunks
+    WHERE embedding IS NOT NULL
+    ORDER BY embedding <=> $1::vector
+    LIMIT $2`,
+    embeddingStr,
+    topK
+  )
+  
+  if (candidates.length === 0) {
+    return []
+  }
+  
+  // Step 3: Re-rank using Python CrossEncoder
+  try {
+    const rerankedChunks = await rerankWithCrossEncoder(searchQuery, candidates, topN)
+    return rerankedChunks.map(chunk => ({
+      id: chunk.id,
+      text: chunk.text,
+      source: chunk.source || 'unknown',
+      chunk_index: chunk.chunk_index || 0,
+      rerank_score: chunk.rerank_score || 0,
+      distance: chunk.distance || 0
+    }))
+  } catch (error) {
+    console.warn('CrossEncoder re-ranking failed, using distance-based sorting:', error)
+    // Fallback: return top N by distance
+    return candidates.slice(0, topN).map((c, idx) => ({
+      id: c.id,
+      text: c.text,
+      source: c.source || 'unknown',
+      chunk_index: c.order || 0,
+      rerank_score: 1 - c.distance, // Convert distance to score
+      distance: c.distance
+    }))
+  }
+}
+
+/**
+ * Re-rank chunks using Python CrossEncoder
+ */
+async function rerankWithCrossEncoder(
+  query: string,
+  candidates: Array<{
+    id: string
+    text: string
+    source: string | null
+    lesson: string | null
+    order: number | null
+    distance: number
+  }>,
   topN: number
 ): Promise<Array<{
   id: string
@@ -233,25 +316,31 @@ import os
 import json
 sys.path.insert(0, '${cwd.replace(/'/g, "\\'")}')
 
-from rag.query_improved import RagQueryEngine
+from scripts.rerank_with_crossencoder import rerank_chunks
 
 try:
-    engine = RagQueryEngine(top_k_retrieve=${topK}, top_n_rerank=${topN})
+    # Prepare candidates for re-ranking
+    candidates = ${JSON.stringify(candidates.map(c => ({
+      id: c.id,
+      text: c.text,
+      source: c.source || 'unknown',
+      chunk_index: c.order || 0,
+      distance: c.distance
+    })))}
     
-    # Only retrieve and rerank, don't call LLM
-    candidates = engine.retrieve_candidates('''${searchQuery.replace(/'/g, "\\'\\'")}''')
-    sources = engine.rerank('''${searchQuery.replace(/'/g, "\\'\\'")}''', candidates)
+    # Re-rank using CrossEncoder
+    reranked = rerank_chunks('''${query.replace(/'/g, "\\'\\'")}''', candidates, top_n=${topN})
     
     result = [
         {
             "id": str(s.get("id", "")),
             "text": s.get("text", ""),
             "source": s.get("source", "unknown"),
-            "chunk_index": s.get("chunk_index", s.get("order", 0)),
+            "chunk_index": int(s.get("chunk_index", s.get("order", 0))),
             "rerank_score": float(s.get("rerank_score", 0)),
             "distance": float(s.get("distance", 0))
         }
-        for s in sources
+        for s in reranked
     ]
     print(json.dumps(result, ensure_ascii=False))
 except Exception as e:

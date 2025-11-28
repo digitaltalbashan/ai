@@ -1,4 +1,11 @@
 // OpenAI API client for testing
+// 
+// 🔒 DATA PRIVACY & TRAINING OPT-OUT:
+// - OpenAI API does NOT use your data for training (as of March 1, 2023)
+// - Data is retained for 30 days for abuse monitoring, then automatically deleted
+// - No training parameters are used in API calls
+// - See DATA_PRIVACY.md for complete privacy configuration
+//
 import OpenAI from 'openai'
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
@@ -8,7 +15,12 @@ if (!OPENAI_API_KEY) {
   console.warn('⚠️  OPENAI_API_KEY not set in environment variables')
 }
 
-const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null
+// Initialize OpenAI client
+// Note: No training parameters - data is NOT used for model training
+const openai = OPENAI_API_KEY ? new OpenAI({ 
+  apiKey: OPENAI_API_KEY,
+  // No training configuration needed - OpenAI API does not use data for training by default
+}) : null
 
 /**
  * Call OpenAI Chat Completion API (non-streaming)
@@ -26,6 +38,8 @@ export async function chatCompletion(
   }
 
   try {
+    // Create chat completion
+    // 🔒 Privacy: No training parameters used - data is NOT used for model training
     const response = await openai.chat.completions.create({
       model: OPENAI_MODEL,
       messages: messages.map((msg) => ({
@@ -35,6 +49,8 @@ export async function chatCompletion(
       temperature: options?.temperature ?? 0.3,
       max_tokens: options?.maxTokens ?? 2000,
       stream: false,
+      // Note: No training-related parameters are included
+      // OpenAI API does not use this data for training by default (as of March 1, 2023)
     })
 
     return {
@@ -65,6 +81,8 @@ export async function chatCompletionStream(
   }
 
   try {
+    // Create streaming chat completion
+    // 🔒 Privacy: No training parameters used - data is NOT used for model training
     const stream = await openai.chat.completions.create({
       model: OPENAI_MODEL,
       messages: messages.map((msg) => ({
@@ -74,6 +92,8 @@ export async function chatCompletionStream(
       temperature: options?.temperature ?? 0.3,
       max_tokens: options?.maxTokens ?? 2000,
       stream: true,
+      // Note: No training-related parameters are included
+      // OpenAI API does not use this data for training by default (as of March 1, 2023)
     })
 
     // Convert OpenAI stream to ReadableStream

@@ -30,7 +30,8 @@ export async function middleware(req: NextRequest) {
   console.log('🔍 [MIDDLEWARE] Token check:', {
     pathname,
     hasToken: !!token,
-    tokenId: token?.sub || 'no-token'
+    tokenId: token?.sub || 'no-token',
+    email: token?.email || 'no-email'
   })
 
   // If no token, redirect to signin
@@ -40,6 +41,19 @@ export async function middleware(req: NextRequest) {
     signInUrl.searchParams.set('callbackUrl', pathname)
     console.log('🔄 [MIDDLEWARE] Redirect URL:', signInUrl.toString())
     return NextResponse.redirect(signInUrl)
+  }
+
+  // Check admin access for admin routes
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    const adminEmail = 'tzmoyal@gmail.com'
+    if (token.email !== adminEmail) {
+      console.log('🚫 [MIDDLEWARE] Unauthorized admin access attempt:', token.email)
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      )
+    }
+    console.log('✅ [MIDDLEWARE] Admin access granted')
   }
 
   console.log('✅ [MIDDLEWARE] Token exists, allowing access to:', pathname)
