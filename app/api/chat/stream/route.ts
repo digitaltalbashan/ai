@@ -5,12 +5,12 @@ import { getServerSession } from '@/src/auth'
 import { prisma } from '@/src/server/db/client'
 import { MessageSender } from '@prisma/client'
 import { queryWithPythonRag } from '@/src/server/vector/queryWithPythonRag'
-import { queryWithOpenAIRag } from '@/src/server/vector/queryWithOpenAIRag'
+import { queryWithOpenAIRag, queryWithOpenAIRagStream } from '@/src/server/vector/queryWithOpenAIRag'
 import { ChatRequest } from '@/src/types'
 import { getUserContext, formatUserContextForPrompt, extractContextFromConversation } from '@/src/server/userContext'
 import { updateUserMemory } from '@/src/server/memory/update'
 import { loadLongTermMemory, saveLongTermMemory, updateLongTermMemoryWithLLM } from '@/src/server/memory/longTermMemory'
-import { serializeUserContextSnippet } from '@/src/server/memory/promptHelpers'
+import { serializeUserContextSnippet, type ChatMessage } from '@/src/server/memory/promptHelpers'
 
 // Ensure Node.js runtime (not edge) for Prisma support
 export const runtime = 'nodejs'
@@ -121,144 +121,228 @@ export async function POST(request: NextRequest) {
     }
     console.log(`${'='.repeat(100)}\n`)
     
-    // 7. Use OpenAI API if enabled, otherwise use Python RAG with llama.cpp
+    // 7. Use OpenAI API with REAL streaming if enabled, otherwise use Python RAG
     // searchQuery: used for chunk retrieval (includes history for better context)
     // message: used for LLM (current question only)
-    // Include long-term memory, user context and userId for active memory retrieval
-    // Check if this is the first message in the conversation (before storing the new user message)
     const isFirstMessage = recentMessages.length === 0
     const combinedContext = memorySnippet 
       ? `${memorySnippet}\n\n${contextText || ''}`.trim()
       : contextText
-    const ragResult = USE_OPENAI
-      ? await queryWithOpenAIRag(
-          searchQuery, 
-          message, 
-          50, 
-          8, 
-          combinedContext, 
-          userId, 
-          isFirstMessage,
-          longTermMemory, // Pass longTermMemory object
-          recentMessages.map(m => ({ // Convert to ChatMessage format
-            sender: m.sender === MessageSender.USER ? 'USER' : 'ASSISTANT',
-            content: m.content,
-            createdAt: m.createdAt
-          }))
-        )
-      : await queryWithPythonRag(searchQuery, message, 50, 8)
     
-    // Log RAG retrieval with FULL details
-    console.log(`\n${'='.repeat(100)}`)
-    console.log(`📚 צ'אנקים שנמצאו (${ragResult.sources.length} בסך הכל):`)
-    console.log(`${'='.repeat(100)}`)
-    ragResult.sources.forEach((chunk, idx) => {
-      console.log(`\n  [${idx + 1}] ID: ${chunk.id}`)
-      console.log(`      Source: ${chunk.source}`)
-      console.log(`      Chunk Index: ${chunk.chunk_index}`)
-      console.log(`      Rerank Score: ${chunk.rerank_score.toFixed(3)}`)
-      console.log(`      Distance: ${chunk.distance.toFixed(3)}`)
-      console.log(`      Text (FULL):`)
-      console.log(`      ${'─'.repeat(96)}`)
-      console.log(`      ${chunk.text}`)
-      console.log(`      ${'─'.repeat(96)}`)
-    })
+    // Convert messages to ChatMessage format
+    const chatMessages: ChatMessage[] = recentMessages.map(m => ({
+      sender: (m.sender === MessageSender.USER ? 'USER' : 'ASSISTANT') as 'USER' | 'ASSISTANT',
+      content: m.content,
+      createdAt: m.createdAt
+    }))
     
-    if (ragResult.timing) {
-      console.log(`\n⏱️  Timing:`)
-      console.log(`   Retrieve: ${ragResult.timing.retrieve_time?.toFixed(2)}s`)
-      console.log(`   Rerank: ${ragResult.timing.rerank_time?.toFixed(2)}s`)
-      console.log(`   LLM: ${ragResult.timing.llm_time?.toFixed(2)}s`)
-      console.log(`   Total: ${ragResult.timing.total_time?.toFixed(2)}s`)
-    }
-    console.log(`${'='.repeat(100)}\n`)
-
-    const assistantResponse = ragResult.answer || 'לא הצלחתי ליצור תשובה.'
-
-    // 8. Store assistant message
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        sender: MessageSender.ASSISTANT,
-        content: assistantResponse,
-      },
-    })
-
-    // 9. Extract and update user context from conversation
-    try {
-      await extractContextFromConversation(userId, message, assistantResponse)
-    } catch (error) {
-      console.error('Error updating user context:', error)
-      // Don't fail the request if context update fails
-    }
-
-    // 10. Update active conversation memory (every message)
-    // This maintains continuity within the active conversation
-    try {
-      const allMessages = await prisma.message.findMany({
-        where: { conversationId: conversation.id },
-        orderBy: { createdAt: 'asc' },
+    if (USE_OPENAI) {
+      // Use REAL streaming from OpenAI
+      const ragStreamResult = await queryWithOpenAIRagStream(
+        searchQuery,
+        message,
+        50,
+        8,
+        combinedContext,
+        userId,
+        isFirstMessage,
+        longTermMemory,
+        chatMessages
+      )
+      
+      // Log RAG retrieval details
+      console.log(`\n${'='.repeat(100)}`)
+      console.log(`📚 צ'אנקים שנמצאו (${ragStreamResult.sources.length} בסך הכל):`)
+      console.log(`${'='.repeat(100)}`)
+      ragStreamResult.sources.forEach((chunk, idx) => {
+        console.log(`\n  [${idx + 1}] ID: ${chunk.id}`)
+        console.log(`      Source: ${chunk.source}`)
+        console.log(`      Chunk Index: ${chunk.chunk_index}`)
+        console.log(`      Rerank Score: ${chunk.rerank_score.toFixed(3)}`)
+        console.log(`      Distance: ${chunk.distance.toFixed(3)}`)
       })
       
-      // Update memory with all messages from the active conversation
-      // This happens automatically on every message to maintain context
-      if (allMessages.length > 0) {
-        await updateUserMemory(
-          userId,
-          allMessages.map((m) => ({
-            sender: m.sender,
-            content: m.content,
-            createdAt: m.createdAt,
-          })),
-          'ACTIVE_CONVERSATION'
-        )
+      if (ragStreamResult.timing) {
+        console.log(`\n⏱️  Timing:`)
+        console.log(`   Retrieve: ${ragStreamResult.timing.retrieve_time?.toFixed(2)}s`)
+        console.log(`   Rerank: ${ragStreamResult.timing.rerank_time?.toFixed(2)}s`)
+        console.log(`   Total (before streaming): ${ragStreamResult.timing.total_time?.toFixed(2)}s`)
       }
-    } catch (error) {
-      console.error('Error updating active conversation memory:', error)
-      // Don't fail the request if memory update fails
-    }
-
-    // 11. Update long-term memory using LLM as Memory Extractor
-    // This extracts persistent facts, preferences, and themes from the conversation
-    try {
-      console.log('\n🧠 Updating long-term memory...')
-      const updatedMemory = await updateLongTermMemoryWithLLM(
-        userId,
-        message,
-        assistantResponse,
-        longTermMemory
-      )
-      await saveLongTermMemory(userId, updatedMemory)
-      console.log('✅ Long-term memory updated successfully')
-    } catch (error) {
-      console.error('Error updating long-term memory:', error)
-      // Don't fail the request if long-term memory update fails
-    }
-
-    // 7. Return response as stream (simulate streaming by sending in chunks)
-    // Since Python RAG doesn't support true streaming, we'll send the response in chunks
-    const encoder = new TextEncoder()
-    const chunks = assistantResponse.match(/.{1,50}/g) || [assistantResponse]
-    
-    const stream = new ReadableStream({
-      async start(controller) {
-        for (const chunk of chunks) {
-          controller.enqueue(encoder.encode(chunk))
-          // Small delay to simulate streaming
-          await new Promise(resolve => setTimeout(resolve, 10))
+      console.log(`${'='.repeat(100)}\n`)
+      
+      // Collect full response for storage (in background)
+      let fullResponse = ''
+      const responseStream = new ReadableStream({
+        async start(controller) {
+          const reader = ragStreamResult.stream.getReader()
+          const decoder = new TextDecoder()
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              
+              const chunk = decoder.decode(value, { stream: true })
+              fullResponse += chunk
+              controller.enqueue(value)
+            }
+            controller.close()
+          } catch (error) {
+            console.error('Error reading stream:', error)
+            controller.error(error)
+          } finally {
+            reader.releaseLock()
+          }
+          
+          // Store assistant message and update memory in background (non-blocking)
+          // This happens after streaming completes
+          setImmediate(async () => {
+            try {
+              // Store assistant message
+              await prisma.message.create({
+                data: {
+                  conversationId: conversation.id,
+                  sender: MessageSender.ASSISTANT,
+                  content: fullResponse,
+                },
+              })
+              
+              // Update user context
+              try {
+                await extractContextFromConversation(userId, message, fullResponse)
+              } catch (error) {
+                console.error('Error updating user context:', error)
+              }
+              
+              // Update active conversation memory
+              try {
+                const allMessages = await prisma.message.findMany({
+                  where: { conversationId: conversation.id },
+                  orderBy: { createdAt: 'asc' },
+                })
+                
+                if (allMessages.length > 0) {
+                  await updateUserMemory(
+                    userId,
+                    allMessages.map((m) => ({
+                      sender: m.sender,
+                      content: m.content,
+                      createdAt: m.createdAt,
+                    })),
+                    'ACTIVE_CONVERSATION'
+                  )
+                }
+              } catch (error) {
+                console.error('Error updating active conversation memory:', error)
+              }
+              
+              // Update long-term memory
+              try {
+                console.log('\n🧠 Updating long-term memory...')
+                const updatedMemory = await updateLongTermMemoryWithLLM(
+                  userId,
+                  message,
+                  fullResponse,
+                  longTermMemory
+                )
+                await saveLongTermMemory(userId, updatedMemory)
+                console.log('✅ Long-term memory updated successfully')
+              } catch (error) {
+                console.error('Error updating long-term memory:', error)
+              }
+            } catch (error) {
+              console.error('Error in background tasks:', error)
+            }
+          })
+        },
+      })
+      
+      // Return streaming response with proper headers
+      return new Response(responseStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Transfer-Encoding': 'chunked',
+          'X-Conversation-Id': conversation.id,
+        },
+      })
+    } else {
+      // Fallback to Python RAG (non-streaming)
+      const ragResult = await queryWithPythonRag(searchQuery, message, 50, 8)
+      const assistantResponse = ragResult.answer || 'לא הצלחתי ליצור תשובה.'
+      
+      // Store assistant message
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          sender: MessageSender.ASSISTANT,
+          content: assistantResponse,
+        },
+      })
+      
+      // Update memory (same as before)
+      try {
+        await extractContextFromConversation(userId, message, assistantResponse)
+      } catch (error) {
+        console.error('Error updating user context:', error)
+      }
+      
+      try {
+        const allMessages = await prisma.message.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: 'asc' },
+        })
+        
+        if (allMessages.length > 0) {
+          await updateUserMemory(
+            userId,
+            allMessages.map((m) => ({
+              sender: m.sender,
+              content: m.content,
+              createdAt: m.createdAt,
+            })),
+            'ACTIVE_CONVERSATION'
+          )
         }
-        controller.close()
-      },
-    })
-
-    // Return streaming response with proper headers
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-        'X-Conversation-Id': conversation.id,
-      },
-    })
+      } catch (error) {
+        console.error('Error updating active conversation memory:', error)
+      }
+      
+      try {
+        console.log('\n🧠 Updating long-term memory...')
+        const updatedMemory = await updateLongTermMemoryWithLLM(
+          userId,
+          message,
+          assistantResponse,
+          longTermMemory
+        )
+        await saveLongTermMemory(userId, updatedMemory)
+        console.log('✅ Long-term memory updated successfully')
+      } catch (error) {
+        console.error('Error updating long-term memory:', error)
+      }
+      
+      // Simulate streaming for Python RAG
+      const encoder = new TextEncoder()
+      const chunks = assistantResponse.match(/.{1,50}/g) || [assistantResponse]
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          for (const chunk of chunks) {
+            controller.enqueue(encoder.encode(chunk))
+            await new Promise(resolve => setTimeout(resolve, 10))
+          }
+          controller.close()
+        },
+      })
+      
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Transfer-Encoding': 'chunked',
+          'X-Conversation-Id': conversation.id,
+        },
+      })
+    }
   } catch (error) {
     console.error('Chat stream API error:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)

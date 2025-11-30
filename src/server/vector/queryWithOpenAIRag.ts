@@ -4,10 +4,10 @@
  */
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
-import { chatCompletion, embedText } from '../openai'
+import { chatCompletion, chatCompletionStream, embedText } from '../openai'
 import { prisma } from '@/src/server/db/client'
 import { searchUserMemories } from './search'
-import { serializeUserContextSnippet } from '../memory/promptHelpers'
+import { serializeUserContextSnippet, buildMessagesForModel } from '../memory/promptHelpers'
 import { loadSystemPrompt } from '../prompts/loadSystemPrompt'
 import type { LongTermMemory } from '@/src/types/longTermMemory'
 import type { ChatMessage } from '../memory/promptHelpers'
@@ -26,6 +26,23 @@ export interface OpenAIRagResult {
     retrieve_time: number
     rerank_time: number
     llm_time: number
+    total_time: number
+  }
+}
+
+export interface OpenAIRagStreamResult {
+  stream: ReadableStream<Uint8Array>
+  sources: Array<{
+    id: string
+    text: string
+    source: string
+    chunk_index: number
+    rerank_score: number
+    distance: number
+  }>
+  timing?: {
+    retrieve_time: number
+    rerank_time: number
     total_time: number
   }
 }
@@ -203,6 +220,149 @@ ${contextText}${longTermMemorySection}${activeMemorySection}
   } catch (error) {
     console.error('OpenAI API error:', error)
     throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+/**
+ * Query with OpenAI RAG using streaming (for real-time responses)
+ * Returns a ReadableStream that streams tokens as they arrive from OpenAI
+ */
+export async function queryWithOpenAIRagStream(
+  searchQuery: string,
+  question: string,
+  topK: number = 50,
+  topN: number = 8,
+  userContext?: string,
+  userId?: string,
+  isFirstMessage: boolean = false,
+  longTermMemory?: LongTermMemory,
+  recentMessages?: ChatMessage[]
+): Promise<OpenAIRagStreamResult> {
+  const startTime = Date.now()
+  
+  // Step 1: Use Python RAG for retrieval and re-ranking only
+  const retrievalStart = Date.now()
+  const chunks = await retrieveChunksWithPython(searchQuery, topK, topN)
+  const retrieveTime = (Date.now() - retrievalStart) / 1000
+  
+  if (!chunks || chunks.length === 0) {
+    // Return a stream with error message
+    const encoder = new TextEncoder()
+    const errorStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('לא מצאתי מידע רלוונטי בחומרי הקורס.'))
+        controller.close()
+      },
+    })
+    
+    return {
+      stream: errorStream,
+      sources: [],
+      timing: {
+        retrieve_time: retrieveTime,
+        rerank_time: 0,
+        total_time: (Date.now() - startTime) / 1000,
+      },
+    }
+  }
+  
+  // Step 2: Build messages using the helper function
+  const knowledgeChunks = chunks.map(chunk => ({
+    id: chunk.id,
+    text: chunk.text,
+    source: chunk.source,
+    chunk_index: chunk.chunk_index,
+  }))
+  
+  // Format RAG context
+  const ragSnippet = knowledgeChunks.map((chunk, idx) => 
+    `[מקור ${idx + 1}] ${chunk.source}:\n${chunk.text}`
+  ).join('\n\n')
+  
+  // Get active conversation memory (if userId provided)
+  let activeMemory: string | null = null
+  if (userId) {
+    try {
+      const memories = await searchUserMemories(userId, question, 1)
+      const activeMemories = memories.filter(m => m.memoryType === 'ACTIVE_CONVERSATION')
+      if (activeMemories.length > 0) {
+        activeMemory = activeMemories[0].summary
+        console.log(`\n💾 Active conversation memory found:`)
+        console.log(`   ${activeMemory.substring(0, 150)}...`)
+      }
+    } catch (error) {
+      console.warn('Failed to retrieve active conversation memory:', error)
+    }
+  }
+  
+  // Build user context snippet
+  const userContextSnippet = longTermMemory
+    ? serializeUserContextSnippet(longTermMemory, question, {
+        includeProfile: true,
+        includePreferences: true,
+        maxFacts: 7,
+        factImportance: ['high', 'medium'],
+        includeRelevantTasks: true
+      })
+    : userContext || ''
+  
+  // Load system prompt
+  const systemPrompt = loadSystemPrompt()
+  
+  // Build messages using the helper function
+  const messages = buildMessagesForModel({
+    systemPrompt,
+    userContextSnippet,
+    activeSummary: activeMemory,
+    recentMessages: recentMessages || [],
+    ragSnippet,
+    currentUserInput: question
+  })
+  
+  // Log what we're sending
+  console.log(`\n${'='.repeat(100)}`)
+  console.log(`📤 Streaming request to OpenAI:`)
+  console.log(`   Model: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'}`)
+  console.log(`   Messages: ${messages.length}`)
+  console.log(`   Sources: ${chunks.length}`)
+  console.log(`${'='.repeat(100)}\n`)
+  
+  // Step 3: Call OpenAI API with streaming
+  try {
+    const stream = await chatCompletionStream(messages, {
+      temperature: 0.3,
+      maxTokens: 2000,
+    })
+    
+    return {
+      stream,
+      sources: chunks,
+      timing: {
+        retrieve_time: retrieveTime,
+        rerank_time: 0,
+        total_time: (Date.now() - startTime) / 1000,
+      },
+    }
+  } catch (error) {
+    console.error('OpenAI API streaming error:', error)
+    // Return error stream
+    const encoder = new TextEncoder()
+    const errorStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('שגיאה ביצירת תשובה. נסה שוב מאוחר יותר.'))
+        controller.close()
+      },
+    })
+    
+    return {
+      stream: errorStream,
+      sources: chunks,
+      timing: {
+        retrieve_time: retrieveTime,
+        rerank_time: 0,
+        total_time: (Date.now() - startTime) / 1000,
+      },
+    }
   }
 }
 
