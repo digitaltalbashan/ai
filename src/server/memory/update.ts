@@ -10,41 +10,65 @@ interface Message {
 }
 
 /**
- * Update user memory by summarizing recent conversation
- * Creates a new memory entry with embedding for future semantic search
+ * Update user memory by summarizing the active conversation (INCREMENTAL)
+ * This is the "working memory" that gets updated with every message
+ * Uses incremental summarization: previous summary + new messages only
+ * Creates or updates a single memory entry per user for the active conversation
  */
 export async function updateUserMemory(
   userId: string,
   recentMessages: Message[],
-  memoryType: string = 'SESSION_SUMMARY'
+  memoryType: string = 'ACTIVE_CONVERSATION'
 ): Promise<void> {
-  // Build a prompt to summarize key facts, emotional themes, and important details
-  const conversationText = recentMessages
+  if (recentMessages.length === 0) {
+    // No messages yet, nothing to remember
+    return
+  }
+
+  // Load previous summary (if exists)
+  const previousMemory = await prisma.$queryRawUnsafe<Array<{
+    summary: string
+  }>>(
+    `SELECT summary FROM user_memories 
+     WHERE "userId" = $1 AND "memoryType" = $2 
+     LIMIT 1`,
+    userId,
+    memoryType
+  )
+
+  const previousSummary = previousMemory.length > 0 ? previousMemory[0].summary : null
+
+  // Format only the new messages (last 6 messages for incremental update)
+  const newMessages = recentMessages.slice(-6)
+  const newMessagesText = newMessages
     .map((msg) => {
       const role = msg.sender === MessageSender.USER ? 'User' : 'Assistant'
       return `${role}: ${msg.content}`
     })
     .join('\n\n')
 
-  const summaryPrompt = `You are analyzing a therapeutic coaching conversation. Create a concise summary that captures:
+  // Build incremental summary prompt
+  const summaryPrompt = `סוכם את החלק האחרון של השיחה ל-2-5 משפטים (30-80 מילים).
 
-1. Key facts about the user (background, current situation, goals)
-2. Emotional themes and patterns that emerged
-3. Important personal details or insights shared
-4. Progress or shifts that occurred in the conversation
+שמור רק מידע חיוני:
+- הכוונה של המשתמש
+- עובדות חדשות שהוא שיתף
+- החלטות או מטרות שחשובות לתור הבא
+- מידע חשוב לשמירה על רצף
 
-Keep the summary factual and focused on what would be useful for future conversations. Aim for 2-4 sentences.
+אל תכתוב מחדש את כל השיחה.
+אל תחרוג מ-5 משפטים.
 
-Conversation:
-${conversationText}
+${previousSummary ? `סיכום קודם:\n${previousSummary}\n\n` : ''}הודעות חדשות:
+${newMessagesText}
 
-Summary:`
+סיכום חדש:`
 
-  // Call LLM to generate summary
+  // Call LLM to generate summary in Hebrew
   const response = await chatCompletion([
     {
       role: 'system',
-      content: 'You are a helpful assistant that creates concise, factual summaries of therapeutic conversations.',
+      content: 'אתה עוזר שיוצר סיכומים תמציתיים ועובדתיים בעברית של שיחות פעילות כדי לשמור על רצף. כל הסיכום חייב להיות בעברית בלבד.',
     },
     {
       role: 'user',
@@ -65,10 +89,16 @@ Summary:`
   // Convert to PostgreSQL vector format
   const embeddingStr = `[${embedding.join(',')}]`
 
-  // Store in database using raw SQL (since Prisma doesn't fully support pgvector)
+  // Upsert: Update existing ACTIVE_CONVERSATION memory or create new one
+  // This ensures there's only one active memory per user
   await prisma.$executeRawUnsafe(
-    `INSERT INTO user_memories (id, "userId", summary, embedding, "memoryType", "createdAt")
-    VALUES (gen_random_uuid()::text, $1, $2, $3::vector, $4, NOW())`,
+    `INSERT INTO user_memories (id, "userId", summary, embedding, "memoryType", "createdAt", "updatedAt")
+    VALUES (gen_random_uuid()::text, $1, $2, $3::vector, $4, NOW(), NOW())
+    ON CONFLICT ("userId", "memoryType") 
+    DO UPDATE SET 
+      summary = EXCLUDED.summary,
+      embedding = EXCLUDED.embedding,
+      "updatedAt" = NOW()`,
     userId,
     summary,
     embeddingStr,

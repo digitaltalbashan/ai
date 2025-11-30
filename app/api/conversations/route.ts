@@ -16,31 +16,42 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all conversations for the user with message count
-    const conversations = await prisma.conversation.findMany({
+    // Get the single conversation for the user (or create if doesn't exist)
+    let conversation = await prisma.conversation.findFirst({
       where: { userId },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'asc' }, // Get the first (oldest) conversation
       include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          take: 1, // Just to check if conversation has messages
-        },
         _count: {
           select: { messages: true },
         },
       },
     })
 
-    // Format response
-    const formattedConversations = conversations.map(conv => ({
-      id: conv.id,
-      title: conv.title || `שיחה ${new Date(conv.createdAt).toLocaleDateString('he-IL')}`,
-      createdAt: conv.createdAt,
-      updatedAt: conv.updatedAt,
-      messageCount: conv._count.messages,
-    }))
+    // If no conversation exists, create one
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          userId,
+          title: 'השיחה שלי',
+        },
+        include: {
+          _count: {
+            select: { messages: true },
+          },
+        },
+      })
+    }
 
-    return NextResponse.json({ conversations: formattedConversations })
+    // Format response - return single conversation
+    const formattedConversation = {
+      id: conversation.id,
+      title: conversation.title || 'השיחה שלי',
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      messageCount: conversation._count.messages,
+    }
+
+    return NextResponse.json({ conversation: formattedConversation })
   } catch (error) {
     console.error('Conversations API error:', error)
     return NextResponse.json(

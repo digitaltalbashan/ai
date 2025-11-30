@@ -14,9 +14,18 @@ let cachedPrompt: string | null = null
  * @returns The system prompt content
  */
 export function loadSystemPrompt(useCache: boolean = process.env.NODE_ENV === 'production'): string {
+  // In development, always reload from file (no cache) to allow hot-reloading
+  // In production, use cache for performance
+  const shouldUseCache = useCache && process.env.NODE_ENV === 'production'
+  
   // Return cached version if available and caching is enabled
-  if (useCache && cachedPrompt) {
+  if (shouldUseCache && cachedPrompt) {
     return cachedPrompt
+  }
+  
+  // Clear cache in development to ensure fresh load
+  if (process.env.NODE_ENV !== 'production') {
+    cachedPrompt = null
   }
 
   try {

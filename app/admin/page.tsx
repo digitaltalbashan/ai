@@ -35,6 +35,23 @@ interface Memory {
   summary: string
   memoryType: string
   createdAt: Date
+  updatedAt?: Date
+}
+
+interface LongTermMemory {
+  user_id: string
+  profile?: Record<string, any>
+  preferences?: string[] | Record<string, any>
+  long_term_facts?: Array<{
+    id: string
+    text: string
+    importance: 'low' | 'medium' | 'high'
+    last_updated: string
+    last_used?: string
+  }>
+  conversation_themes?: string[]
+  memory_summary?: string
+  last_updated: string
 }
 
 interface Message {
@@ -65,13 +82,17 @@ export default function AdminDashboard() {
   const [showMemoriesModal, setShowMemoriesModal] = useState(false)
   const [showConversationDetailModal, setShowConversationDetailModal] = useState(false)
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [userToReset, setUserToReset] = useState<User | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [memories, setMemories] = useState<Memory[]>([])
+  const [longTermMemory, setLongTermMemory] = useState<LongTermMemory | null>(null)
   const [conversationDetail, setConversationDetail] = useState<ConversationDetail | null>(null)
   const [loadingData, setLoadingData] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     if (status === "loading") return
@@ -147,7 +168,8 @@ export default function AdminDashboard() {
       }
 
       const data = await response.json()
-      setMemories(data.memories)
+      setMemories(data.activeMemories || [])
+      setLongTermMemory(data.longTermMemory || null)
       setShowMemoriesModal(true)
     } catch (err) {
       console.error("Error fetching memories:", err)
@@ -177,9 +199,35 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleViewConversations = (user: User) => {
+  const handleViewConversations = async (user: User) => {
     setSelectedUser(user)
-    fetchConversations(user.id)
+    
+    // Since each user has only one conversation, fetch it directly
+    try {
+      setLoadingData(true)
+      const response = await fetch(`/api/admin/users/${user.id}/conversations`)
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch conversation")
+      }
+
+      const data = await response.json()
+      const conversations = data.conversations || []
+      
+      if (conversations.length > 0) {
+        // If there's a conversation, show it directly (no need for list)
+        const conversation = conversations[0]
+        await fetchConversationDetail(user.id, conversation.id)
+      } else {
+        setConversations([])
+        setShowConversationsModal(true)
+      }
+    } catch (err) {
+      console.error("Error fetching conversation:", err)
+      alert("שגיאה בטעינת השיחה")
+    } finally {
+      setLoadingData(false)
+    }
   }
 
   const handleViewMemories = (user: User) => {
@@ -218,6 +266,42 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleResetUser = (user: User) => {
+    setUserToReset(user)
+    setShowResetConfirmModal(true)
+  }
+
+  const confirmResetUser = async () => {
+    if (!userToReset) return
+
+    try {
+      setResetting(true)
+      const response = await fetch(`/api/admin/users/${userToReset.id}/reset`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to reset user data")
+      }
+
+      const data = await response.json()
+      
+      // Refresh users list
+      await fetchUsers()
+      setShowResetConfirmModal(false)
+      setUserToReset(null)
+      
+      // Show success message
+      alert(`✅ נתוני המשתמש אופסו בהצלחה!\n\nנמחקו:\n- ${data.deleted.messages} הודעות\n- ${data.deleted.conversations} שיחות\n- ${data.deleted.memories} זיכרונות\n- ${data.deleted.contexts} קונטקסטים`)
+    } catch (err: any) {
+      console.error("Error resetting user data:", err)
+      alert(err.message || "שגיאה באיפוס נתוני המשתמש")
+    } finally {
+      setResetting(false)
+    }
+  }
+
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50" dir="rtl">
@@ -240,7 +324,7 @@ export default function AdminDashboard() {
             onClick={() => router.push("/chat")}
             className="mt-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            חזור לצ'אט
+            חזור לצ&apos;אט
           </button>
         </div>
       </div>
@@ -261,7 +345,7 @@ export default function AdminDashboard() {
               onClick={() => router.push("/chat")}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
             >
-              חזור לצ'אט
+              חזור לצ&apos;אט
             </button>
           </div>
         </div>
@@ -269,13 +353,16 @@ export default function AdminDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white shadow rounded-lg p-6">
-            <div className="text-sm font-medium text-gray-500">סה"כ משתמשים</div>
+            <div className="text-sm font-medium text-gray-500">סה&apos;&quot;כ משתמשים</div>
             <div className="mt-2 text-3xl font-bold text-gray-900">{users.length}</div>
           </div>
           <div className="bg-white shadow rounded-lg p-6">
-            <div className="text-sm font-medium text-gray-500">שיחות פעילות</div>
+            <div className="text-sm font-medium text-gray-500">משתמשים עם שיחה</div>
             <div className="mt-2 text-3xl font-bold text-blue-600">
-              {users.reduce((sum, user) => sum + user._count.conversations, 0)}
+              {users.filter(u => u._count.conversations > 0).length}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              מתוך {users.length} משתמשים
             </div>
           </div>
           <div className="bg-white shadow rounded-lg p-6">
@@ -311,7 +398,7 @@ export default function AdminDashboard() {
                     תאריך הרשמה
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    שיחות
+                    שיחה
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     זיכרונות
@@ -378,7 +465,15 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{user._count.conversations}</div>
+                        {user._count.conversations > 0 ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            יש שיחה
+                          </span>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            אין שיחה
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{user._count.memories}</div>
@@ -401,7 +496,7 @@ export default function AdminDashboard() {
                             disabled={loadingData || user._count.conversations === 0}
                             className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                           >
-                            שיחות ({user._count.conversations})
+                            {user._count.conversations > 0 ? 'צפה בשיחה' : 'אין שיחה'}
                           </button>
                           <button
                             onClick={() => handleViewMemories(user)}
@@ -409,6 +504,14 @@ export default function AdminDashboard() {
                             className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                           >
                             זיכרונות ({user._count.memories})
+                          </button>
+                          <button
+                            onClick={() => handleResetUser(user)}
+                            disabled={resetting}
+                            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            title="אפס נתונים - כאילו משתמש חדש"
+                          >
+                            🔄 אפס נתונים
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user)}
@@ -429,13 +532,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Conversations Modal */}
-      {showConversationsModal && selectedUser && (
+      {/* Conversations Modal - Only shown if no conversation exists */}
+      {showConversationsModal && selectedUser && conversations.length === 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">שיחות של {selectedUser.name || selectedUser.email}</h2>
+                <h2 className="text-xl font-bold text-gray-900">אין שיחה</h2>
                 <p className="text-sm text-gray-500 mt-1">{selectedUser.email}</p>
               </div>
               <button
@@ -449,40 +552,21 @@ export default function AdminDashboard() {
                 ×
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingData ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
-                  <p className="mt-4 text-gray-600">טוען שיחות...</p>
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">אין שיחות למשתמש זה</div>
-              ) : (
-                <div className="space-y-4">
-                  {conversations.map((conv) => (
-                    <div
-                      key={conv.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => fetchConversationDetail(selectedUser.id, conv.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {conv.title || "שיחה ללא כותרת"}
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {conv._count.messages} הודעות
-                          </p>
-                        </div>
-                        <div className="text-left text-sm text-gray-500">
-                          <div>{new Date(conv.createdAt).toLocaleDateString("he-IL")}</div>
-                          <div>{new Date(conv.updatedAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="px-6 py-8 text-center">
+              <p className="text-gray-600">למשתמש זה עדיין אין שיחה.</p>
+              <p className="text-sm text-gray-500 mt-2">השיחה תיווצר אוטומטית כשהמשתמש ישלח הודעה ראשונה.</p>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowConversationsModal(false)
+                  setConversations([])
+                  setSelectedUser(null)
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              >
+                סגור
+              </button>
             </div>
           </div>
         </div>
@@ -491,7 +575,7 @@ export default function AdminDashboard() {
       {/* Memories Modal */}
       {showMemoriesModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">זיכרונות של {selectedUser.name || selectedUser.email}</h2>
@@ -501,6 +585,7 @@ export default function AdminDashboard() {
                 onClick={() => {
                   setShowMemoriesModal(false)
                   setMemories([])
+                  setLongTermMemory(null)
                   setSelectedUser(null)
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -514,29 +599,154 @@ export default function AdminDashboard() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto" />
                   <p className="mt-4 text-gray-600">טוען זיכרונות...</p>
                 </div>
-              ) : memories.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">אין זיכרונות למשתמש זה</div>
               ) : (
-                <div className="space-y-4">
-                  {memories.map((memory) => (
-                    <div key={memory.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">
-                          {memory.memoryType}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {new Date(memory.createdAt).toLocaleDateString("he-IL", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                <div className="space-y-6">
+                  {/* Active Conversation Memory */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                      זיכרון פעיל (Active Conversation Memory)
+                    </h3>
+                    {memories.length === 0 ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-gray-500">
+                        אין זיכרון פעיל למשתמש זה
                       </div>
-                      <p className="text-gray-900 whitespace-pre-wrap">{memory.summary}</p>
-                    </div>
-                  ))}
+                    ) : (
+                      <div className="space-y-4">
+                        {memories.map((memory) => (
+                          <div key={memory.id} className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">
+                                {memory.memoryType}
+                              </span>
+                              <div className="text-xs text-gray-500">
+                                <div>נוצר: {new Date(memory.createdAt).toLocaleString("he-IL")}</div>
+                                {memory.updatedAt && (
+                                  <div>עודכן: {new Date(memory.updatedAt).toLocaleString("he-IL")}</div>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">{memory.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Long-term Memory */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      זיכרון מתמשך (Long-term Memory)
+                    </h3>
+                    {!longTermMemory || (Object.keys(longTermMemory).length === 0) ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-gray-500">
+                        אין זיכרון מתמשך למשתמש זה
+                      </div>
+                    ) : (
+                      <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-4">
+                        {/* Profile */}
+                        {longTermMemory.profile && Object.keys(longTermMemory.profile).length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-2">👤 פרופיל:</h4>
+                            <div className="bg-white rounded p-3 text-sm">
+                              {Object.entries(longTermMemory.profile).map(([key, value]) => (
+                                value && (
+                                  <div key={key} className="mb-1">
+                                    <span className="font-medium">{key}:</span> {String(value)}
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Preferences */}
+                        {longTermMemory.preferences && (
+                          Array.isArray(longTermMemory.preferences) ? (
+                            longTermMemory.preferences.length > 0 && (
+                              <div>
+                                <h4 className="font-semibold text-gray-900 mb-2">⭐ העדפות:</h4>
+                                <div className="bg-white rounded p-3">
+                                  <ul className="list-disc list-inside space-y-1 text-sm">
+                                    {longTermMemory.preferences.map((pref, idx) => (
+                                      <li key={idx}>{pref}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            )
+                          ) : (
+                            Object.keys(longTermMemory.preferences).length > 0 && (
+                              <div>
+                                <h4 className="font-semibold text-gray-900 mb-2">⭐ העדפות:</h4>
+                                <div className="bg-white rounded p-3 text-sm">
+                                  {JSON.stringify(longTermMemory.preferences, null, 2)}
+                                </div>
+                              </div>
+                            )
+                          )
+                        )}
+
+                        {/* Long-term Facts */}
+                        {longTermMemory.long_term_facts && longTermMemory.long_term_facts.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-2">📚 עובדות מתמשכות ({longTermMemory.long_term_facts.length}):</h4>
+                            <div className="space-y-2">
+                              {longTermMemory.long_term_facts.map((fact, idx) => (
+                                <div key={fact.id} className="bg-white rounded p-3 border-l-4 border-green-500">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                                      fact.importance === 'high' ? 'bg-red-100 text-red-800' :
+                                      fact.importance === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {fact.importance.toUpperCase()}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      עודכן: {new Date(fact.last_updated).toLocaleDateString("he-IL")}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-900">{fact.text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Conversation Themes */}
+                        {longTermMemory.conversation_themes && longTermMemory.conversation_themes.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-2">🎯 נושאי שיחה:</h4>
+                            <div className="bg-white rounded p-3">
+                              <div className="flex flex-wrap gap-2">
+                                {longTermMemory.conversation_themes.map((theme, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">
+                                    {theme}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Memory Summary */}
+                        {longTermMemory.memory_summary && (
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-2">📄 סיכום זיכרון:</h4>
+                            <div className="bg-white rounded p-3 text-sm text-gray-900 whitespace-pre-wrap">
+                              {longTermMemory.memory_summary}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Last Updated */}
+                        <div className="text-xs text-gray-500 pt-2 border-t border-green-200">
+                          עודכן לאחרונה: {new Date(longTermMemory.last_updated).toLocaleString("he-IL")}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -612,6 +822,66 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Reset Confirmation Modal */}
+      {showResetConfirmModal && userToReset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">איפוס נתוני משתמש</h2>
+            </div>
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  האם אתה בטוח שברצונך לאפס את כל הנתונים של המשתמש הבא?
+                </p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="font-semibold text-gray-900">
+                    {userToReset.name || "ללא שם"}
+                  </p>
+                  <p className="text-sm text-gray-600">{userToReset.email}</p>
+                  <div className="mt-2 text-xs text-gray-500">
+                    <p>שיחות: {userToReset._count.conversations}</p>
+                    <p>זיכרונות: {userToReset._count.memories}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-orange-600 mt-4 font-semibold">
+                  ⚠️ פעולה זו תמחק את כל הנתונים של המשתמש (שיחות, הודעות, זיכרונות, קונטקסט) ותאתחל אותו כאילו הוא משתמש חדש. המשתמש עצמו יישאר במערכת.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  הפעולה לא ניתנת לביטול!
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowResetConfirmModal(false)
+                  setUserToReset(null)
+                }}
+                disabled={resetting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={confirmResetUser}
+                disabled={resetting}
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {resetting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    מאפס...
+                  </>
+                ) : (
+                  "אפס נתונים"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmModal && userToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
@@ -635,7 +905,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <p className="text-sm text-red-600 mt-4 font-semibold">
-                  ⚠️ פעולה זו תמחק את כל הנתונים הקשורים למשתמש (שיחות, זיכרונות, וכו') ולא ניתן לבטל אותה!
+                  ⚠️ פעולה זו תמחק את כל הנתונים הקשורים למשתמש (שיחות, זיכרונות, וכו&apos;) ולא ניתן לבטל אותה!
                 </p>
               </div>
             </div>

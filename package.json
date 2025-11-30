@@ -17,15 +17,10 @@
     "test:setup": "tsx scripts/test-setup.ts",
     "test:api": "tsx scripts/test-api.ts",
     "test:endpoints": "tsx scripts/test-endpoints.ts",
-    "debug:rag": "tsx scripts/debugRagTest.ts",
-    "test:circle": "tsx scripts/testCircleQuery.ts",
-    "test:pipeline": "tsx scripts/test-full-pipeline.ts",
     "rag:optimize": "tsx scripts/optimizeRagFile.ts",
     "rag:quality": "tsx scripts/qualityCheckRag.ts",
-    "test:answers": "tsx scripts/testModelAnswers.ts",
     "rag:process:docx": "tsx scripts/processDocxToRag.ts",
-    "rag:index:digital": "tsx scripts/indexDigitalCourseRag.ts",
-    "llm:server": "python3 scripts/dicta_lm_server.py"
+    "rag:index:digital": "tsx scripts/indexDigitalCourseRag.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

@@ -78,12 +78,14 @@ model UserMemory {
   id         String        @id @default(uuid())
   userId     String
   summary    String        @db.Text
-  embedding  Unsupported("vector(768)")
-  memoryType String        @default("SESSION_SUMMARY")
+  embedding  Unsupported("vector(1536)") // text-embedding-3-small
+  memoryType String        @default("ACTIVE_CONVERSATION")
   createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, memoryType])
   @@map("user_memories")
 }
 

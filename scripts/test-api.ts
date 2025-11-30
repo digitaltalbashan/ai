@@ -68,9 +68,6 @@ async function testImports() {
     const { searchKnowledge } = await import('../src/server/vector/search')
     console.log('   ✅ Vector search imports successfully')
     
-    const { buildPrompt } = await import('../src/server/prompt/buildPrompt')
-    console.log('   ✅ Prompt builder imports successfully')
-    
     return true
   } catch (error) {
     console.log(`   ❌ Import error: ${error instanceof Error ? error.message : error}`)
