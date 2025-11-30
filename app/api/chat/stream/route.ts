@@ -195,65 +195,68 @@ export async function POST(request: NextRequest) {
           }
           
           // Store assistant message and update memory in background (non-blocking)
-          // This happens after streaming completes
-          setImmediate(async () => {
-            try {
-              // Store assistant message
-              await prisma.message.create({
-                data: {
-                  conversationId: conversation.id,
-                  sender: MessageSender.ASSISTANT,
-                  content: fullResponse,
-                },
-              })
-              
-              // Update user context
+          // This happens after streaming completes - don't await to avoid blocking
+          if (fullResponse) {
+            // Use setTimeout instead of setImmediate to ensure it runs after stream closes
+            setTimeout(async () => {
               try {
-                await extractContextFromConversation(userId, message, fullResponse)
-              } catch (error) {
-                console.error('Error updating user context:', error)
-              }
-              
-              // Update active conversation memory
-              try {
-                const allMessages = await prisma.message.findMany({
-                  where: { conversationId: conversation.id },
-                  orderBy: { createdAt: 'asc' },
+                // Store assistant message
+                await prisma.message.create({
+                  data: {
+                    conversationId: conversation.id,
+                    sender: MessageSender.ASSISTANT,
+                    content: fullResponse,
+                  },
                 })
                 
-                if (allMessages.length > 0) {
-                  await updateUserMemory(
+                // Update user context
+                try {
+                  await extractContextFromConversation(userId, message, fullResponse)
+                } catch (error) {
+                  console.error('Error updating user context:', error)
+                }
+                
+                // Update active conversation memory
+                try {
+                  const allMessages = await prisma.message.findMany({
+                    where: { conversationId: conversation.id },
+                    orderBy: { createdAt: 'asc' },
+                  })
+                  
+                  if (allMessages.length > 0) {
+                    await updateUserMemory(
+                      userId,
+                      allMessages.map((m) => ({
+                        sender: m.sender,
+                        content: m.content,
+                        createdAt: m.createdAt,
+                      })),
+                      'ACTIVE_CONVERSATION'
+                    )
+                  }
+                } catch (error) {
+                  console.error('Error updating active conversation memory:', error)
+                }
+                
+                // Update long-term memory
+                try {
+                  console.log('\n🧠 Updating long-term memory...')
+                  const updatedMemory = await updateLongTermMemoryWithLLM(
                     userId,
-                    allMessages.map((m) => ({
-                      sender: m.sender,
-                      content: m.content,
-                      createdAt: m.createdAt,
-                    })),
-                    'ACTIVE_CONVERSATION'
+                    message,
+                    fullResponse,
+                    longTermMemory
                   )
+                  await saveLongTermMemory(userId, updatedMemory)
+                  console.log('✅ Long-term memory updated successfully')
+                } catch (error) {
+                  console.error('Error updating long-term memory:', error)
                 }
               } catch (error) {
-                console.error('Error updating active conversation memory:', error)
+                console.error('Error in background tasks:', error)
               }
-              
-              // Update long-term memory
-              try {
-                console.log('\n🧠 Updating long-term memory...')
-                const updatedMemory = await updateLongTermMemoryWithLLM(
-                  userId,
-                  message,
-                  fullResponse,
-                  longTermMemory
-                )
-                await saveLongTermMemory(userId, updatedMemory)
-                console.log('✅ Long-term memory updated successfully')
-              } catch (error) {
-                console.error('Error updating long-term memory:', error)
-              }
-            } catch (error) {
-              console.error('Error in background tasks:', error)
-            }
-          })
+            }, 0) // Run in next tick, after stream is fully closed
+          }
         },
       })
       
