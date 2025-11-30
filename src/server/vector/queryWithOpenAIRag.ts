@@ -6,6 +6,11 @@ import { spawn } from 'child_process'
 import { existsSync } from 'fs'
 import { chatCompletion, embedText } from '../openai'
 import { prisma } from '@/src/server/db/client'
+import { searchUserMemories } from './search'
+import { serializeUserContextSnippet } from '../memory/promptHelpers'
+import { loadSystemPrompt } from '../prompts/loadSystemPrompt'
+import type { LongTermMemory } from '@/src/types/longTermMemory'
+import type { ChatMessage } from '../memory/promptHelpers'
 
 export interface OpenAIRagResult {
   answer: string
@@ -30,7 +35,11 @@ export async function queryWithOpenAIRag(
   question: string,
   topK: number = 50,
   topN: number = 8,
-  userContext?: string
+  userContext?: string,
+  userId?: string,
+  isFirstMessage: boolean = false,
+  longTermMemory?: LongTermMemory,
+  recentMessages?: ChatMessage[]
 ): Promise<OpenAIRagResult> {
   const startTime = Date.now()
   
@@ -67,86 +76,71 @@ export async function queryWithOpenAIRag(
     `[מקור ${idx + 1}] ${chunk.source}:\n${chunk.text}`
   ).join('\n\n')
   
+  // Get active conversation memory (if userId provided)
+  let activeMemory: string | null = null
+  if (userId) {
+    try {
+      const memories = await searchUserMemories(userId, question, 1)
+      // Get only ACTIVE_CONVERSATION memory
+      const activeMemories = memories.filter(m => m.memoryType === 'ACTIVE_CONVERSATION')
+      if (activeMemories.length > 0) {
+        activeMemory = activeMemories[0].summary
+        console.log(`\n💾 Active conversation memory found:`)
+        console.log(`   ${activeMemory.substring(0, 150)}...`)
+      }
+    } catch (error) {
+      console.warn('Failed to retrieve active conversation memory:', error)
+      // Don't fail if memory retrieval fails
+    }
+  }
+  
   // Log full context that will be sent to OpenAI
   console.log(`\n${'='.repeat(100)}`)
   console.log(`📤 קונטקסט מלא שנשלח ל-OpenAI:`)
   console.log(`${'='.repeat(100)}`)
   
-  const userContextSection = userContext ? `\n\n${userContext}` : ''
+  // Use serializeUserContextSnippet if longTermMemory is provided, otherwise use userContext
+  let longTermMemorySection = ''
+  if (longTermMemory) {
+    // Use the new helper function for better structured context
+    const memorySnippet = serializeUserContextSnippet(longTermMemory, question, {
+      includeProfile: true,
+      includePreferences: true,
+      maxFacts: 7,
+      factImportance: ['high', 'medium'],
+      includeRelevantTasks: true
+    })
+    if (memorySnippet && memorySnippet.trim()) {
+      longTermMemorySection = `\n\nזיכרון מתמשך של המשתמש:\n${memorySnippet}`
+    }
+  } else if (userContext) {
+    // Fallback to legacy userContext format
+    if (userContext.includes('פרופיל:') || userContext.includes('העדפות:') || userContext.includes('עובדות חשובות:')) {
+      longTermMemorySection = `\n\nזיכרון מתמשך של המשתמש:\n${userContext}`
+    } else {
+      longTermMemorySection = userContext ? `\n\nקונטקסט אישי של המשתמש:\n${userContext}` : ''
+    }
+  }
   
-  const systemPrompt = `אתה טל בשן – מרצה ומטפל רגשי, ואתה עונה תמיד בסגנון הדיבור האותנטי שלו כפי שהוא נשמע בשיעורים ובהקלטות.
+  const activeMemorySection = activeMemory ? `\n\nזיכרון מהשיחה הפעילה (מה שנאמר קודם):\n${activeMemory}` : ''
+  
+  // Load system prompt from markdown file
+  const systemPrompt = loadSystemPrompt()
+  
+  // Build user message with context
+  const userMessageContent = `${question}
 
-## כללי עבודה בסיסיים:
-
-1. אתה **עונה רק מתוך הצ'אנקים והדוגמאות** שאני מספק.  
-   אין להמציא ידע, אין לשער, ואין לענות מעבר למה שיש בקונטקסט.
-
-2. אם אין מספיק מידע כדי לענות — אתה אומר זאת בכנות, בצורה עדינה:  
-   "לא מצאתי תשובה מדויקת בקטעים שקיבלתי. אם תרצה, אוכל להציע כיוון כללי."
-
-3. תמיד תענה בעברית טבעית.
-
-## 1. טון ועמדה
-
-- הטון חם, אנושי, לא שיפוטי, בגובה העיניים.
-- לעיתים הומור עדין, במיוחד עצמי, לשחרור מתח.
-- אווירה של "בואו נחשוב יחד", לא סמכותיות נוקשה.
-
-## 2. מבנה תשובה קבוע (5 שלבים)
-
-עליך לשמור על מבנה תשובה בעל 5 שלבים:
-
-**שלב 1: קבלה ושיקוף קצר של השואל/ת**
-
-ביטויים כמו "אוקיי", "נהדר", "מעניין מה שאת אומרת", "אני מבין".
-
-**שלב 2: העמקת הפרספקטיבה באמצעות מושגים מרכזיים**
-
-שימוש תדיר ומדויק במונחים הבאים:
-
-- חוק המראות
-- סרגלים / ערכים
-- ריאקטיביות
-- מנגנוני הישרדות
-- הילדה/הילד הפנימי
-- מיקוד שליטה פנימי
-- תת־מודע
-- דפוסי ילדות שנלחצים
-
-**שלב 3: הסבר מסודר ורציף בצורת פירוק לוגי**
-
-דוגמא: "קודם כל…", "ואז…", "ומה זה אומר בפועל?".
-
-חשוב להביא דוגמה יומיומית אחת לפחות (כביש, זוגיות, עבודה, שיחה עם הורה וכו').
-
-**שלב 4: ריכוך אשמה וחמלה עצמית**
-
-הדגשה: "זו לא תקלה בך", "זה מנגנון הישרדות שהיה חייב להגן עלייך".
-
-**שלב 5: משפט מסכם חזק שאפשר לזכור**
-
-דוגמאות בסגנון:
-
-- "אנחנו לא מוחקים את הילדה – רק מושיבים את המבוגר ליד ההגה."
-- "המציאות רק מציפה את מה שכבר כואב בפנים."
-- "כל ריאקציה היא מראה למקום שמבקש ריפוי."
-
-## 3. סגנון לשוני
-
-- עברית יומיומית ולא קלינית.
-- לפעמים מילה באנגלית ("We are reacting").
-- הומור רך, דיבור חופשי: "בואו נגיד ככה…", "תלי תילים של סיפור".
-- לעולם אינך מדבר בהתנשאות.
-
-## 4. צורת תוכן
-
-- תשובות ברורות, נקיות, עם עומק רגשי.
-- לא להעתיק תשובות קיימות – לייצר תשובה חדשה ברוח הסגנון והדוגמאות.
-- לשמור על אינטימיות, אמפתיה ודיוק.
+⸻
 
 קונטקסט מחומרי הקורס:
-${contextText}${userContextSection}`
-  
+${contextText}${longTermMemorySection}${activeMemorySection}
+
+**הנחיות:**
+- השתמש בקונטקסט מחומרי הקורס כדי לענות על השאלה
+- הזיכרון המתמשך מכיל עובדות, העדפות ונושאים מתמשכים על המשתמש שחיים מחוץ לשיחה הספציפית
+- הזיכרון מהשיחה הפעילה מכיל סיכום של מה שנאמר קודם בשיחה
+- השתמש בשניהם כדי לשמור על רצף ועקביות בתשובות שלך`
+
   const messages = [
     {
       role: 'system',
@@ -154,7 +148,7 @@ ${contextText}${userContextSection}`
     },
     {
       role: 'user',
-      content: question
+      content: userMessageContent
     }
   ]
   
@@ -164,10 +158,10 @@ ${contextText}${userContextSection}`
   console.log(systemPrompt)
   console.log(`${'─'.repeat(96)}`)
   
-  // Log user question
-  console.log(`\n[USER QUESTION]:`)
+  // Log user message (with context)
+  console.log(`\n[USER MESSAGE - FULL]:`)
   console.log(`${'─'.repeat(96)}`)
-  console.log(question)
+  console.log(userMessageContent)
   console.log(`${'─'.repeat(96)}`)
   
   // Log model and parameters
@@ -182,7 +176,8 @@ ${contextText}${userContextSection}`
   console.log(`   Messages Count: ${messages.length}`)
   console.log(`   System Prompt Length: ${systemPrompt.length} characters`)
   console.log(`   Context Length: ${contextText.length} characters`)
-  console.log(`   Total Prompt Length: ${systemPrompt.length + question.length} characters`)
+  console.log(`   User Message Length: ${userMessageContent.length} characters`)
+  console.log(`   Total Prompt Length: ${systemPrompt.length + userMessageContent.length} characters`)
   console.log(`${'='.repeat(100)}\n`)
   
   // Step 3: Call OpenAI API
@@ -214,8 +209,9 @@ ${contextText}${userContextSection}`
 /**
  * Retrieve chunks using OpenAI embeddings (TypeScript-based, no Python)
  * This matches the 1536-dimensional embeddings in the database
+ * Exported for use in prompt helpers
  */
-async function retrieveChunksWithPython(
+export async function retrieveChunksWithPython(
   searchQuery: string,
   topK: number,
   topN: number
